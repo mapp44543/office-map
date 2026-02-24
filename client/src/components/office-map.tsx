@@ -517,7 +517,7 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
           </div>
         </div>
       )}
-  <div className="w-full flex justify-center items-center h-[800px] map-container" ref={containerRef} onMouseDown={handleMouseDown}>
+  <div className="w-full flex justify-center items-center flex-1 map-container" ref={containerRef} onMouseDown={handleMouseDown}>
         <div
           className="map-scalable"
           style={{
@@ -536,7 +536,7 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
                 type="image/svg+xml"
                 draggable="false"
                 className="rounded-lg shadow-inner bg-white"
-                style={{ maxWidth: '100%', maxHeight: 800, display: 'block' }}
+                style={{ maxWidth: '100%', maxHeight: '100%', display: 'block' }}
                 onLoad={e => {
                   setIsImageLoaded(false);
                   const target = e.currentTarget as HTMLObjectElement;
@@ -568,7 +568,7 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
                 alt=" "
                 draggable="false"
                 className="rounded-lg shadow-inner bg-white"
-                style={{ maxWidth: '100%', maxHeight: 800, display: 'block' }}
+                style={{ maxWidth: '100%', maxHeight: '100%', display: 'block' }}
                 onLoad={e => {
                   const target = e.target as HTMLImageElement;
                   // Use real rendered dimensions, not naturalWidth

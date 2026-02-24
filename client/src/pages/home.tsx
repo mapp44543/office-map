@@ -140,7 +140,7 @@ export default function Home() {
         </div>
       </header>
 
-      <div className="flex h-[calc(100vh-64px)] bg-background relative">
+      <div className="flex h-screen bg-background relative">
         {/* Блок ресурсов полностью удалён */}
         {/* Main Content */}
         <main className="flex-1 overflow-hidden">
