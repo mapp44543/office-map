@@ -8,9 +8,22 @@ import { setupVite, serveStatic, log } from "./vite";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Load .env from project root or via DOTENV_PATH environment variable
+// Load .env: prefer project-root .env, allow overriding via DOTENV_PATH,
+// otherwise fall back to the legacy absolute path used by the original author.
 const projectEnvPath = path.resolve(__dirname, '..', '.env');
-const dotenvPath = process.env.DOTENV_PATH || projectEnvPath;
+// user requested path: prefer this location if present
+const userEnvDir = 'C:\\Users\\sedyh.a\\Desktop\\1';
+const legacyEnvPath = path.resolve(userEnvDir, '.env');
+const dotenvPath = (function () {
+  // explicit override via environment variable
+  if (process.env.DOTENV_PATH && fs.existsSync(process.env.DOTENV_PATH)) return process.env.DOTENV_PATH;
+  // prefer user-provided legacy path when present
+  if (fs.existsSync(legacyEnvPath)) return legacyEnvPath;
+  // fallback to project .env
+  if (fs.existsSync(projectEnvPath)) return projectEnvPath;
+  // default to user legacy path if none exist
+  return legacyEnvPath;
+})();
 dotenv.config({ path: dotenvPath });
 
 const app = express();
