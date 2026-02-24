@@ -489,7 +489,7 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
   };
 
   return (
-    <div className="flex-1 relative overflow-auto bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-blue-950">
+    <div className="flex-1 relative overflow-hidden bg-background">
       {/* Undo button (только для админ-режима) */}
       {isAdminMode && undoStack.length > 0 && (
         <button
