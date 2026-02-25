@@ -4,11 +4,9 @@ import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { mapClientToImagePercent, formatRelativeTime } from "@/lib/utils";
-import {
-  GripVertical,
-} from "lucide-react";
+import { GripVertical } from "lucide-react";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
-import { useCustomIcons } from "@/hooks/use-custom-icon";
+import { useIconsCache } from "@/context/icons-cache";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { LocationHighlightRing } from "@/components/location-highlight-ring";
 import type { Location } from "@shared/schema";
@@ -212,6 +210,9 @@ function LocationMarkerComponent({
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  // Получаем кэшированные иконки вместо множественных запросов на каждый маркер
+  const iconsCache = useIconsCache();
+
   // Ensure we remove any global no-select class if component unmounts unexpectedly
   useEffect(() => {
     return () => {
@@ -222,38 +223,7 @@ function LocationMarkerComponent({
     };
   }, []);
 
-  // Загружаем SVG иконки сразу для всех локаций нужного типа (не ленивая загрузка)
-  const { data: commonAreaIcons = [], isLoading: isLoadingCommonArea } = useCustomIcons("common area", {
-    enabled: location.type === "common-area",
-  });
-  const { data: meetingRoomIcons = [], isLoading: isLoadingMeetingRoom } = useCustomIcons("negotiation room", {
-    enabled: location.type === "meeting-room",
-  });
-  const { data: equipmentIcons = [], isLoading: isLoadingEquipment } = useCustomIcons("print", {
-    enabled: location.type === "equipment",
-  });
-  const { data: cameraIcons = [], isLoading: isLoadingCamera } = useCustomIcons("Камера", {
-    enabled: location.type === "camera",
-  });
-  const { data: acIcons = [], isLoading: isLoadingAc } = useCustomIcons("ac", {
-    enabled: location.type === "ac",
-  });
-
-  // Load workstation icons based on current status
-  const { data: workstationActivIcons = [], isLoading: isLoadingWorkstationActiv } = useCustomIcons("workstation", {
-    status: "occupied",
-    enabled: location.type === "workstation",
-  });
-  const { data: workstationNonactivIcons = [], isLoading: isLoadingWorkstationNonactiv } = useCustomIcons("workstation", {
-    status: "available",
-    enabled: location.type === "workstation",
-  });
-  const { data: workstationRepairIcons = [], isLoading: isLoadingWorkstationRepair } = useCustomIcons("workstation", {
-    status: "maintenance",
-    enabled: location.type === "workstation",
-  });
-
-  // Загружаем аватарку пользователя для рабочего места
+  // Загружаем аватарку пользователя для рабочего места (только когда видимый маркер рендерится)
   const { data: avatar } = useQuery({
     queryKey: [`/api/locations/${location.id}/avatar`],
     queryFn: async () => {
@@ -282,79 +252,74 @@ function LocationMarkerComponent({
     
     if (location.type === "common-area") {
       // Return undefined while loading - prevents showing fallback icons
-      if (isLoadingCommonArea) {
+      if (iconsCache.isLoading) {
         return undefined;
       }
       if (preferredIcon) {
         return `/icons/common%20area/${preferredIcon}`;
       }
-      if (commonAreaIcons.length > 0) {
-        return commonAreaIcons[0].url;
+      if (iconsCache.commonAreaIcons.length > 0) {
+        return iconsCache.commonAreaIcons[0].url;
       }
     } else if (location.type === "meeting-room") {
-      if (isLoadingMeetingRoom) {
+      if (iconsCache.isLoading) {
         return undefined;
       }
       if (preferredIcon) {
         return `/icons/negotiation%20room/${preferredIcon}`;
       }
-      if (meetingRoomIcons.length > 0) {
-        return meetingRoomIcons[0].url;
+      if (iconsCache.meetingRoomIcons.length > 0) {
+        return iconsCache.meetingRoomIcons[0].url;
       }
     } else if (location.type === "equipment") {
-      if (isLoadingEquipment) {
+      if (iconsCache.isLoading) {
         return undefined;
       }
       if (preferredIcon) {
         return `/icons/print/${preferredIcon}`;
       }
-      if (equipmentIcons.length > 0) {
-        return equipmentIcons[0].url;
+      if (iconsCache.equipmentIcons.length > 0) {
+        return iconsCache.equipmentIcons[0].url;
       }
     } else if (location.type === "camera") {
-      if (isLoadingCamera) {
+      if (iconsCache.isLoading) {
         return undefined;
       }
       if (preferredIcon) {
         return `/icons/Камера/${preferredIcon}`;
       }
-      if (cameraIcons.length > 0) {
-        return cameraIcons[0].url;
+      if (iconsCache.cameraIcons.length > 0) {
+        return iconsCache.cameraIcons[0].url;
       }
     } else if (location.type === "ac") {
-      if (isLoadingAc) {
+      if (iconsCache.isLoading) {
         return undefined;
       }
       if (preferredIcon) {
         return `/icons/ac/${preferredIcon}`;
       }
-      if (acIcons.length > 0) {
-        return acIcons[0].url;
+      if (iconsCache.acIcons.length > 0) {
+        return iconsCache.acIcons[0].url;
       }
     } else if (location.type === "workstation") {
-      // Check if any workstation icon loading is in progress
-      if (isLoadingWorkstationActiv || isLoadingWorkstationNonactiv || isLoadingWorkstationRepair) {
+      if (iconsCache.isLoading) {
         return undefined;
       }
-      
       if (preferredIcon) {
-        // Map status to the correct folder: occupied -> activ, available -> nonactiv, maintenance -> repair
-        const statusMap: Record<string, string> = {
-          "occupied": "activ",
-          "available": "nonactiv",
-          "maintenance": "repair"
-        };
-        const folder = statusMap[status] || "nonactiv";
-        return `/icons/user/${folder}/${preferredIcon}`;
+        return `/icons/user/${preferredIcon}`;
       }
-      
-      // Fallback to first icon from appropriate status folder
-      const iconsForStatus = status === "occupied" ? workstationActivIcons : status === "maintenance" ? workstationRepairIcons : workstationNonactivIcons;
-      if (iconsForStatus.length > 0) {
-        return iconsForStatus[0].url;
+      // Выбираем иконку в зависимости от статуса
+      const iconsByStatus = {
+        occupied: iconsCache.workstationActivIcons,
+        available: iconsCache.workstationNonactivIcons,
+        maintenance: iconsCache.workstationRepairIcons,
+      };
+      const icons = iconsByStatus[status as keyof typeof iconsByStatus] || iconsCache.workstationNonactivIcons;
+      if (icons.length > 0) {
+        return icons[0].url;
       }
     }
-    
+
     return undefined;
   };
 
@@ -762,7 +727,9 @@ function LocationMarkerComponent({
 }
 
 // Оптимизированное сравнение для React.memo
-// Пересчитываем только при изменении критичных свойств
+// ВАЖНО: НЕ сравниваем scale и panPosition - они меняются при каждом движении мыши/зуме
+// и вызывают перерендер всех маркеров 60+ раз в секунду
+// Вместо этого, передаём их через props, но маркер не перерендеривается из-за них
 const LocationMarkerMemo = React.memo(LocationMarkerComponent, (prev, next) => {
   // Возвращаем true если пропсы одинаковые (не нужен пересчёт)
   return (
@@ -777,15 +744,12 @@ const LocationMarkerMemo = React.memo(LocationMarkerComponent, (prev, next) => {
     prev.isHighlighted === next.isHighlighted &&
     prev.isAdminMode === next.isAdminMode &&
     prev.isVisible === next.isVisible &&
-    // Проверяем размеры образ контейнера (реже меняются)
+    // Проверяем размеры cambio контейнера (реже меняются)
     prev.imgSize.width === next.imgSize.width &&
     prev.imgSize.height === next.imgSize.height &&
-    // Масштаб влияет на отрисовку — важно сравнить
-    prev.scale === next.scale &&
-    // Проверяем панорирование минимально
-    prev.panPosition.x === next.panPosition.x &&
-    prev.panPosition.y === next.panPosition.y &&
-    // Функции обычно одинаковые, но на случай обновления
+    // ИСКЛЮЧИЛИ: scale и panPosition - они обновляют DOM позицию через CSS transform
+    // передача props scale и panPosition не требует перерендера компонента
+    // Функции обычно одинаковые
     prev.onClick === next.onClick &&
     prev.onMarkerMove === next.onMarkerMove
   );

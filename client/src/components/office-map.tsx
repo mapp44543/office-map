@@ -30,6 +30,9 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
   // Local transient highlight (when user clicks Найти) to avoid prop drilling timing issues
   const [highlightedLocationIdsLocal, setHighlightedLocationIdsLocal] = useState<string[]>([]);
 
+  // --- Floor transition state ---
+  const [isFloorTransitioning, setIsFloorTransitioning] = useState(false);
+
   // --- Добавлено: обновление размеров карты при ресайзе окна ---
   const imgRef = useRef<HTMLImageElement | HTMLObjectElement>(null);
   const [imgSize, setImgSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
@@ -43,7 +46,6 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
   const rafIdRef = useRef<number | null>(null);
   const wheelThrottleRef = useRef<number | null>(null);
   const [isInteracting, setIsInteracting] = useState(false);
-  const [isFloorTransitioning, setIsFloorTransitioning] = useState(false);
 
 
 
@@ -290,7 +292,15 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
       const scaledWidth = imgSize.width * scale;
       const scaledHeight = imgSize.height * scale;
       const newPanX = (containerWidth - scaledWidth) / 2;
-      const newPanY = (containerHeight - scaledHeight) / 2 - 60; // поднять карту на 60px вверх
+      
+      // For Y position: ensure minimum top padding of 20px to prevent clipping of narrow/non-widescreen maps
+      // If image is smaller than container, center it with minimal top padding
+      // If image is larger than container, allow scrolling but don't clip the top
+      const verticalCenterOffset = (containerHeight - scaledHeight) / 2;
+      const minTopPadding = 20;
+      const newPanY = verticalCenterOffset > 0 
+        ? Math.max(verticalCenterOffset - 60, minTopPadding) // Prefer top-biased centering when there's extra space, but keep minimum padding
+        : verticalCenterOffset; // When image is larger, allow natural panning without extra shift
       
       setPanPosition({ x: newPanX, y: newPanY });
     }
@@ -411,15 +421,14 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
         const centerX = Math.round(imgSize.width / 2);
         const centerY = Math.round(imgSize.height / 2);
 
-  // Effect для плавного переходу между этажами
-  useEffect(() => {
-    setIsFloorTransitioning(true);
-  }, [currentFloor]);
-
   // Effect to synchronize image size when floor or URL changes
   useEffect(() => {
     // Reset image loaded flag when changing floors
     setIsImageLoaded(false);
+    setIsFloorTransitioning(true);
+    // Reset zoom and pan to default when changing floors for smooth transition
+    setScale(0.85);
+    setPanPosition({ x: 0, y: 0 });
 
     if (!imgRef.current) return;
 
@@ -543,14 +552,13 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
       )}
   <div className="w-full flex justify-center items-center flex-1 map-container" ref={containerRef} onMouseDown={handleMouseDown}>
         <div
-          className="map-scalable"
+          className={`map-scalable ${isFloorTransitioning ? 'floor-transitioning' : 'floor-loaded'}`}
           style={{
             position: 'relative',
             display: 'inline-block',
             transform: `translate(${panPosition.x}px, ${panPosition.y}px) scale(${scale})`,
-            transition: isPanning ? 'none' : 'transform 0.1s ease-out, opacity 0.3s ease-in-out',
-            cursor: isPanning ? 'grabbing' : 'grab',
-            opacity: isFloorTransitioning ? 0 : 1
+            transition: isPanning ? 'none' : 'transform 0.1s ease-out',
+            cursor: isPanning ? 'grabbing' : 'grab'
           }}
           >
           {imageUrl ? (

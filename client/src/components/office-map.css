@@ -15,7 +15,7 @@
 /* Стили для масштабируемого контейнера */
 .map-scalable {
   transform-origin: 0 0;
-  will-change: transform;
+  will-change: transform, opacity;
   touch-action: none; /* Предотвращает стандартное поведение касания на мобильных устройствах */
   user-select: none; /* Предотвращает выделение текста при перетаскивании */
   -webkit-user-select: none;
@@ -32,6 +32,20 @@
   -webkit-perspective: 1000;
   perspective: 1000;
   transition: transform 600ms cubic-bezier(0.4, 0.0, 0.2, 1); /* Плавная анимация с мягким ускорением */
+}
+
+/* Floor transition: fade in/out effect - optimized for 60 FPS */
+.map-scalable.floor-transitioning {
+  transition: opacity 1000ms cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0;
+  /* Block interactions during transition */
+  pointer-events: none;
+}
+
+.map-scalable.floor-loaded {
+  opacity: 1;
+  transition: opacity 1000ms cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: auto;
 }
 
 .map-scalable img {
@@ -71,11 +85,12 @@
   border-radius: 50%;
 }
 
-/* Highlight animation: disabled for performance */
+/* Highlight animation: optimized for 60 FPS performance */
 .marker-highlight {
-  transition: transform 320ms cubic-bezier(.2,.8,.2,1), opacity 320ms cubic-bezier(.2,.8,.2,1);
+  transition: transform 280ms cubic-bezier(.25,.46,.45,.94), opacity 280ms cubic-bezier(.25,.46,.45,.94);
   transform-origin: center center;
   animation: none;
+  will-change: transform, opacity;
 }
 
 /* Пульсирующая анимация для кружка выделения */
@@ -105,6 +120,11 @@
 .location-marker {
   contain: layout style paint; /* Изолирует рендеринг контекст маркера */
   will-change: transform; /* Подсказывает браузеру готовиться к трансформациям */
+  /* Enable GPU acceleration */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 /* removed marker-pulse keyframes to avoid background animation */
@@ -172,9 +192,11 @@
   }
 }
 
-/* Icon transition for smooth appearance */
+/* Icon transition for smooth appearance - optimized for 60 FPS */
 .location-marker img {
-  transition: opacity 300ms ease-in-out;
+  transition: opacity 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 /* Shadow/ghost marker when dragging - shows where marker will be placed */
 .location-marker-shadow {
@@ -191,5 +213,18 @@
   50% {
     opacity: 0.5;
     box-shadow: 0 0 12px rgba(100, 150, 255, 0.6), inset 0 0 6px rgba(100, 150, 255, 0.3);
+  }
+}
+
+/* Respect user's motion preferences for better accessibility and performance */
+@media (prefers-reduced-motion: reduce) {
+  .map-scalable,
+  .map-scalable.floor-transitioning,
+  .map-scalable.floor-loaded,
+  .marker-highlight,
+  .location-marker img,
+  .location-highlight-ring-pulse {
+    transition: none !important;
+    animation: none !important;
   }
 }
