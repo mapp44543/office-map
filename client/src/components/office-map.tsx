@@ -34,7 +34,7 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
   const imgRef = useRef<HTMLImageElement | HTMLObjectElement>(null);
   const [imgSize, setImgSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const [isImageLoaded, setIsImageLoaded] = useState(false);
-  const [scale, setScale] = useState(1);
+  const [scale, setScale] = useState(0.85);
   const [isPanning, setIsPanning] = useState(false);
   const [panPosition, setPanPosition] = useState({ x: 0, y: 0 });
   const [startPanPos, setStartPanPos] = useState({ x: 0, y: 0 });
@@ -277,6 +277,24 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
       centerOnLocation(foundLocationId);
     }
   }, [foundLocationId]);
+
+  // Center map when image loads
+  useEffect(() => {
+    if (isImageLoaded && containerRef.current && imgSize.width > 0 && imgSize.height > 0) {
+      const container = containerRef.current;
+      const containerWidth = container.clientWidth;
+      const containerHeight = container.clientHeight;
+      
+      // Calculate pan position to center the scaled image
+      const scaledWidth = imgSize.width * scale;
+      const scaledHeight = imgSize.height * scale;
+      const newPanX = (containerWidth - scaledWidth) / 2;
+      const newPanY = (containerHeight - scaledHeight) / 2 - 60; // поднять карту на 60px вверх
+      
+      setPanPosition({ x: newPanX, y: newPanY });
+    }
+  }, [isImageLoaded, scale, imgSize]);
+  
   // Поиск локаций теперь вынесен в отдельный компонент
   const { data: floors = [] } = useQuery<Floor[]>({ queryKey: ["/api/floors"] });
   // Показываем только публичные этажи для HR и публичного режима
