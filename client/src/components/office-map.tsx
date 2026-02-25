@@ -43,6 +43,7 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
   const rafIdRef = useRef<number | null>(null);
   const wheelThrottleRef = useRef<number | null>(null);
   const [isInteracting, setIsInteracting] = useState(false);
+  const [isFloorTransitioning, setIsFloorTransitioning] = useState(false);
 
 
 
@@ -410,6 +411,11 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
         const centerX = Math.round(imgSize.width / 2);
         const centerY = Math.round(imgSize.height / 2);
 
+  // Effect для плавного переходу между этажами
+  useEffect(() => {
+    setIsFloorTransitioning(true);
+  }, [currentFloor]);
+
   // Effect to synchronize image size when floor or URL changes
   useEffect(() => {
     // Reset image loaded flag when changing floors
@@ -542,8 +548,9 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
             position: 'relative',
             display: 'inline-block',
             transform: `translate(${panPosition.x}px, ${panPosition.y}px) scale(${scale})`,
-            transition: isPanning ? 'none' : 'transform 0.1s ease-out',
-            cursor: isPanning ? 'grabbing' : 'grab'
+            transition: isPanning ? 'none' : 'transform 0.1s ease-out, opacity 0.3s ease-in-out',
+            cursor: isPanning ? 'grabbing' : 'grab',
+            opacity: isFloorTransitioning ? 0 : 1
           }}
           >
           {imageUrl ? (
@@ -572,6 +579,7 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
                         setImgSize({ width: 1000, height: 800 });
                       }
                       setIsImageLoaded(true);
+                      setIsFloorTransitioning(false);
                     }
                   }, 100);
                 }}
@@ -601,6 +609,7 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
                         setImgSize({ width: target.naturalWidth, height: target.naturalHeight });
                       }
                       setIsImageLoaded(true);
+                      setIsFloorTransitioning(false);
                     }
                   }, 100);
                 }}
