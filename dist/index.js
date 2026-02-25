@@ -727,7 +727,7 @@ __export(cisco_port_status_exports, {
 import { Client } from "ssh2";
 import dotenv from "dotenv";
 import path3 from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath as fileURLToPath3 } from "url";
 async function fetchCiscoPortInfo(portInput, site) {
   let port = String(portInput || "").trim();
   if (!port) throw new Error("Port is required");
@@ -907,13 +907,13 @@ async function getCiscoPortStatus(req, res) {
     return res.status(status).json(errorResponse);
   }
 }
-var __filename, __dirname, envPath;
+var __filename, __dirname3, envPath;
 var init_cisco_port_status = __esm({
   "server/cisco-port-status.ts"() {
     "use strict";
-    __filename = fileURLToPath(import.meta.url);
-    __dirname = path3.dirname(__filename);
-    envPath = path3.resolve(__dirname, "../.env");
+    __filename = fileURLToPath3(import.meta.url);
+    __dirname3 = path3.dirname(__filename);
+    envPath = path3.resolve(__dirname3, "../.env");
     dotenv.config({ path: envPath, debug: true });
   }
 });
@@ -1179,6 +1179,7 @@ __export(routes_exports, {
 import express2 from "express";
 import fs2 from "fs";
 import path4 from "path";
+import { fileURLToPath as fileURLToPath4 } from "url";
 import { createServer as createHttpServer } from "http";
 import https from "https";
 import { WebSocketServer, WebSocket } from "ws";
@@ -1295,7 +1296,7 @@ function getSession() {
       // set secure flag automatically when local certs exist
       secure: function() {
         try {
-          const crtDir = path4.resolve(import.meta.dirname, "..", "crt");
+          const crtDir = path4.resolve(__dirname4, "..", "crt");
           const pfxPath = path4.join(crtDir, "map.spectrum.int.pfx");
           const keyPath = path4.join(crtDir, "map.spectrum.int.key");
           const certPath = path4.join(crtDir, "map.spectrum.int.crt");
@@ -1384,7 +1385,7 @@ async function registerRoutes(app2) {
   });
   const { getCiscoPortStatus: getCiscoPortStatus2 } = await Promise.resolve().then(() => (init_cisco_port_status(), cisco_port_status_exports));
   app2.get("/api/cisco-port-status", getCiscoPortStatus2);
-  const floorPlansDir = path4.resolve(import.meta.dirname, "public", "floor-plans");
+  const floorPlansDir = path4.resolve(__dirname4, "public", "floor-plans");
   fs2.mkdirSync(floorPlansDir, { recursive: true });
   app2.use("/floor-plans", express2.static(floorPlansDir));
   const wsClients = /* @__PURE__ */ new Set();
@@ -2058,7 +2059,7 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Failed to delete public link" });
     }
   });
-  const iconsDir = path4.resolve(import.meta.dirname, "..", "public", "icons");
+  const iconsDir = path4.resolve(__dirname4, "..", "public", "icons");
   fs2.mkdirSync(iconsDir, { recursive: true });
   app2.use("/icons", express2.static(iconsDir));
   app2.get("/api/icons/:category", async (req, res) => {
@@ -2660,7 +2661,7 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Internal server error" });
     }
   });
-  const crtDir = path4.resolve(import.meta.dirname, "..", "crt");
+  const crtDir = path4.resolve(__dirname4, "..", "crt");
   let httpServer;
   try {
     const pfxPath = path4.join(crtDir, "map.spectrum.int.pfx");
@@ -2723,7 +2724,7 @@ async function registerRoutes(app2) {
   }
   return httpServer;
 }
-var securityLogger;
+var __dirname4, securityLogger;
 var init_routes = __esm({
   "server/routes.ts"() {
     "use strict";
@@ -2732,6 +2733,7 @@ var init_routes = __esm({
     init_ad_sync_scheduler();
     init_socket_port_scheduler();
     init_cisco_port_status();
+    __dirname4 = path4.dirname(fileURLToPath4(import.meta.url));
     securityLogger = winston3.createLogger({
       level: "info",
       format: winston3.format.combine(
@@ -2777,6 +2779,7 @@ var init_routes = __esm({
 // server/index.ts
 import express3 from "express";
 import path5 from "path";
+import { fileURLToPath as fileURLToPath5 } from "url";
 import fs3 from "fs";
 import os from "os";
 import dotenv2 from "dotenv";
@@ -2785,33 +2788,32 @@ import dotenv2 from "dotenv";
 import express from "express";
 import fs from "fs";
 import path2 from "path";
+import { fileURLToPath as fileURLToPath2 } from "url";
 import { createServer as createViteServer, createLogger } from "vite";
 
 // vite.config.ts
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
+import { fileURLToPath } from "url";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+var __dirname = path.dirname(fileURLToPath(import.meta.url));
 var vite_config_default = defineConfig({
   plugins: [
     react(),
-    runtimeErrorOverlay(),
-    ...process.env.NODE_ENV !== "production" && process.env.REPL_ID !== void 0 ? [
-      await import("@replit/vite-plugin-cartographer").then(
-        (m) => m.cartographer()
-      )
-    ] : []
+    runtimeErrorOverlay()
+    // Cartographer plugin excluded - not needed for local development
   ],
   resolve: {
     alias: {
-      "@": path.resolve(import.meta.dirname, "client", "src"),
-      "@shared": path.resolve(import.meta.dirname, "shared"),
-      "@assets": path.resolve(import.meta.dirname, "attached_assets")
+      "@": path.resolve(__dirname, "client", "src"),
+      "@shared": path.resolve(__dirname, "shared"),
+      "@assets": path.resolve(__dirname, "attached_assets")
     }
   },
-  root: path.resolve(import.meta.dirname, "client"),
+  root: path.resolve(__dirname, "client"),
   build: {
-    outDir: path.resolve(import.meta.dirname, "dist/public"),
+    outDir: path.resolve(__dirname, "dist/public"),
     emptyOutDir: true
   },
   server: {
@@ -2836,6 +2838,7 @@ var vite_config_default = defineConfig({
 
 // server/vite.ts
 import { nanoid } from "nanoid";
+var __dirname2 = path2.dirname(fileURLToPath2(import.meta.url));
 var viteLogger = createLogger();
 function log(message, source = "express") {
   const formattedTime = (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
@@ -2870,7 +2873,7 @@ async function setupVite(app2, server) {
     const url = req.originalUrl;
     try {
       const clientTemplate = path2.resolve(
-        import.meta.dirname,
+        __dirname2,
         "..",
         "client",
         "index.html"
@@ -2889,7 +2892,7 @@ async function setupVite(app2, server) {
   });
 }
 function serveStatic(app2) {
-  const distPath = path2.resolve(import.meta.dirname, "public");
+  const distPath = path2.resolve(__dirname2, "public");
   if (!fs.existsSync(distPath)) {
     throw new Error(
       `Could not find the build directory: ${distPath}, make sure to build the client first`
@@ -2902,7 +2905,8 @@ function serveStatic(app2) {
 }
 
 // server/index.ts
-var projectEnvPath = path5.resolve(import.meta.dirname, "..", ".env");
+var __dirname5 = path5.dirname(fileURLToPath5(import.meta.url));
+var projectEnvPath = path5.resolve(__dirname5, "..", ".env");
 var userEnvDir = "C:\\Users\\sedyh.a\\Desktop\\1";
 var legacyEnvPath = path5.resolve(userEnvDir, ".env");
 var dotenvPath = function() {
@@ -2929,7 +2933,7 @@ app.use(express3.urlencoded({ extended: false, limit: "10mb" }));
   } else {
     serveStatic(app);
   }
-  const crtDir = path5.resolve(import.meta.dirname, "..", "crt");
+  const crtDir = path5.resolve(__dirname5, "..", "crt");
   const pfxPath = path5.join(crtDir, "map.spectrum.int.pfx");
   const keyPath = path5.join(crtDir, "map.spectrum.int.key");
   const certPath = path5.join(crtDir, "map.spectrum.int.crt");
@@ -2953,7 +2957,7 @@ app.use(express3.urlencoded({ extended: false, limit: "10mb" }));
     });
   }
   server.listen(port, "0.0.0.0", () => {
-    const crtDir2 = path5.resolve(import.meta.dirname, "..", "crt");
+    const crtDir2 = path5.resolve(__dirname5, "..", "crt");
     const pfxPath2 = path5.join(crtDir2, "map.spectrum.int.pfx");
     const keyPath2 = path5.join(crtDir2, "map.spectrum.int.key");
     const certPath2 = path5.join(crtDir2, "map.spectrum.int.crt");

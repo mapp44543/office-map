@@ -6,6 +6,8 @@ import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { getOptimizedImageUrl } from "@/lib/image-optimization";
 import LocationMarker from "./location-marker";
 import VirtualizedMarkerLayer from "./virtualized-marker-layer";
+import VirtualizedMarkerLayerAdvanced from "./virtualized-marker-layer-advanced";
+import CanvasInteractiveMarkerLayer from "./canvas-interactive-marker-layer";
 import LocationModal from "./location-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -645,21 +647,78 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
               }}
               data-testid="office-map-marker-layer"
             >
-              {isImageLoaded && (
-                <VirtualizedMarkerLayer
-                  locations={locations}
-                  isAdminMode={isAdminMode}
-                  highlightedLocationIds={highlightedLocationIdsLocal}
-                  foundLocationId={foundLocationId}
-                  onClick={handleLocationClick}
-                  imgSize={imgSize}
-                  imgRef={imgRef}
-                  onMarkerMove={handleMarkerMove}
-                  scale={scale}
-                  panPosition={panPosition}
-                  isImageLoaded={isImageLoaded}
-                />
-              )}
+              {isImageLoaded && (() => {
+                // Стратегия выбора рендеринга маркеров:
+                // 1. Уровень 1 (0-80): VirtualizedMarkerLayer (DOM)
+                // 2. Уровень 2 (80-150): VirtualizedMarkerLayerAdvanced (DOM + react-window)
+                // 3. Уровень 3 (150+): CanvasInteractiveMarkerLayer (Canvas)
+                // Admin режим: всегда VirtualizedMarkerLayer (нужен DOM для drag-drop)
+
+                const markerCount = locations.length;
+                const inAdminMode = isAdminMode;
+
+                // Выбираем оптимальный рендеринг режим
+                let renderMode: 'basic' | 'advanced' | 'canvas' = 'basic';
+
+                if (!inAdminMode) {
+                  if (markerCount > 150) {
+                    renderMode = 'canvas'; // Canvas при 150+ маркерах
+                  } else if (markerCount > 80) {
+                    renderMode = 'advanced'; // Advanced virtualization при 80-150
+                  }
+                }
+
+                // Рендерим выбранный компонент
+                if (renderMode === 'canvas') {
+                  return (
+                    <CanvasInteractiveMarkerLayer
+                      locations={locations}
+                      isAdminMode={isAdminMode}
+                      highlightedLocationIds={highlightedLocationIdsLocal}
+                      foundLocationId={foundLocationId}
+                      imgSize={imgSize}
+                      scale={scale}
+                      panPosition={panPosition}
+                      onMarkerClick={handleLocationClick}
+                      isImageLoaded={isImageLoaded}
+                      shouldUseCanvas={true}
+                    />
+                  );
+                } else if (renderMode === 'advanced') {
+                  return (
+                    <VirtualizedMarkerLayerAdvanced
+                      locations={locations}
+                      isAdminMode={isAdminMode}
+                      highlightedLocationIds={highlightedLocationIdsLocal}
+                      foundLocationId={foundLocationId}
+                      onClick={handleLocationClick}
+                      imgSize={imgSize}
+                      imgRef={imgRef}
+                      onMarkerMove={handleMarkerMove}
+                      scale={scale}
+                      panPosition={panPosition}
+                      isImageLoaded={isImageLoaded}
+                    />
+                  );
+                } else {
+                  // Базовый режим (0-80 маркеров или админ режим)
+                  return (
+                    <VirtualizedMarkerLayer
+                      locations={locations}
+                      isAdminMode={isAdminMode}
+                      highlightedLocationIds={highlightedLocationIdsLocal}
+                      foundLocationId={foundLocationId}
+                      onClick={handleLocationClick}
+                      imgSize={imgSize}
+                      imgRef={imgRef}
+                      onMarkerMove={handleMarkerMove}
+                      scale={scale}
+                      panPosition={panPosition}
+                      isImageLoaded={isImageLoaded}
+                    />
+                  );
+                }
+              })()}
             </div>
             ), [locations, isAdminMode, imgSize, highlightedLocationIdsLocal, foundLocationId, isImageLoaded, scale, panPosition])}
         </div>
