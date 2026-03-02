@@ -47,7 +47,11 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
   const containerRef = useRef<HTMLDivElement>(null);
   const rafIdRef = useRef<number | null>(null);
   const wheelThrottleRef = useRef<number | null>(null);
+  const scaleRef = useRef<number>(0.85);
+  const panPositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const isInitializedRef = useRef<boolean>(false);
   const [isInteracting, setIsInteracting] = useState(false);
+  const [isZooming, setIsZooming] = useState(false);
 
 
 
@@ -146,6 +150,15 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
     };
   }, [isPanning, startPanPos]);
 
+  // Синхронизируем scaleRef и panPositionRef с состояниями
+  useEffect(() => {
+    scaleRef.current = scale;
+  }, [scale]);
+
+  useEffect(() => {
+    panPositionRef.current = panPosition;
+  }, [panPosition]);
+
   // Слушаем глобальные события перетаскивания маркера, чтобы при drag маркера не инициировать панораму
   useEffect(() => {
     const onMarkerDragStart = () => setIsMarkerDragging(true);
@@ -168,41 +181,52 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
     }
 
     setIsInteracting(true);
+    setIsZooming(true);
 
     const delta = e.deltaY;
     const container = containerRef.current;
     if (!container) return;
 
-    // Получаем позицию мыши относительно контейнера
+    // Получаем позицию мыши в окне браузера
+    const mouseScreenX = e.clientX;
+    const mouseScreenY = e.clientY;
+    
+    // Получаем позицию контейнера
     const containerRect = container.getBoundingClientRect();
-    const mouseX = e.clientX - containerRect.left;
-    const mouseY = e.clientY - containerRect.top;
+    
+    // Позиция мыши относительно контейнера (от левого верхнего угла)
+    const mouseInContainerX = mouseScreenX - containerRect.left;
+    const mouseInContainerY = mouseScreenY - containerRect.top;
 
-    setScale(prevScale => {
-      const newScale = delta > 0
-        ? Math.max(0.5, prevScale - 0.1)  // уменьшение масштаба
-        : Math.min(3, prevScale + 0.1);   // увеличение масштаба
+    // Получаем АКТУАЛЬНЫЕ значения из refs (не из async state)
+    const currentScale = scaleRef.current;
+    const currentPan = panPositionRef.current;
 
-      // Формула зума по мышке:
-      // Мировая координата на карте под мышкой: (mouseX - panX) / scale
-      // После зума эта же координата должна быть под мышкой:
-      // newPanX = mouseX - worldX * newScale
-      // где worldX = (mouseX - prevPanX) / prevScale
-      setPanPosition(prev => {
-        const worldX = (mouseX - prev.x) / prevScale;
-        const worldY = (mouseY - prev.y) / prevScale;
-        return {
-          x: mouseX - worldX * newScale,
-          y: mouseY - worldY * newScale
-        };
-      });
+    // Вычисляем новый масштаб
+    const newScale = delta > 0
+      ? Math.max(0.5, currentScale - 0.1)  // уменьшение масштаба
+      : Math.min(3, currentScale + 0.1);   // увеличение масштаба
 
-      return newScale;
-    });
+    // ПРАВИЛЬНЫЙ расчет зума по позиции мышки (с актуальной позицией из ref)
+    const worldX = (mouseInContainerX - currentPan.x) / currentScale;
+    const worldY = (mouseInContainerY - currentPan.y) / currentScale;
+    
+    // После зума эта же мировая точка должна быть под мышкой
+    const newPanX = mouseInContainerX - worldX * newScale;
+    const newPanY = mouseInContainerY - worldY * newScale;
+    
+    // Обновляем позицию и масштаб (синхронно через refs)
+    panPositionRef.current = { x: newPanX, y: newPanY };
+    scaleRef.current = newScale;
+    
+    // Обновляем состояние (для перерендера)
+    setPanPosition({ x: newPanX, y: newPanY });
+    setScale(newScale);
 
     // Throttle: ограничиваем частоту вызовов
     wheelThrottleRef.current = window.setTimeout(() => {
       wheelThrottleRef.current = null;
+      setIsZooming(false);
     }, 16); // 16ms = ~60fps
   }, []);
 
@@ -283,30 +307,33 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
     }
   }, [foundLocationId]);
 
-  // Center map when image loads
+  // Center map when image loads (only once, during initial load)
   useEffect(() => {
-    if (isImageLoaded && containerRef.current && imgSize.width > 0 && imgSize.height > 0) {
+    if (isImageLoaded && containerRef.current && imgSize.width > 0 && imgSize.height > 0 && !isInitializedRef.current) {
       const container = containerRef.current;
       const containerWidth = container.clientWidth;
       const containerHeight = container.clientHeight;
       
-      // Calculate pan position to center the scaled image
-      const scaledWidth = imgSize.width * scale;
-      const scaledHeight = imgSize.height * scale;
+      // Use initial scale for centering calculation
+      const initialScale = 0.85;
+      const scaledWidth = imgSize.width * initialScale;
+      const scaledHeight = imgSize.height * initialScale;
+      
+      // Center horizontally
       const newPanX = (containerWidth - scaledWidth) / 2;
       
-      // For Y position: ensure minimum top padding of 20px to prevent clipping of narrow/non-widescreen maps
-      // If image is smaller than container, center it with minimal top padding
-      // If image is larger than container, allow scrolling but don't clip the top
+      // Center vertically with slight bias to top for better UX
       const verticalCenterOffset = (containerHeight - scaledHeight) / 2;
       const minTopPadding = 20;
       const newPanY = verticalCenterOffset > 0 
-        ? Math.max(verticalCenterOffset - 60, minTopPadding) // Prefer top-biased centering when there's extra space, but keep minimum padding
-        : verticalCenterOffset; // When image is larger, allow natural panning without extra shift
+        ? Math.max(verticalCenterOffset - 60, minTopPadding)
+        : verticalCenterOffset;
       
       setPanPosition({ x: newPanX, y: newPanY });
+      panPositionRef.current = { x: newPanX, y: newPanY };
+      isInitializedRef.current = true;
     }
-  }, [isImageLoaded, scale, imgSize]);
+  }, [isImageLoaded, imgSize.width, imgSize.height]);
   
   // Поиск локаций теперь вынесен в отдельный компонент
   const { data: floors = [] } = useQuery<Floor[]>({ queryKey: ["/api/floors"] });
@@ -428,6 +455,7 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
     // Reset image loaded flag when changing floors
     setIsImageLoaded(false);
     setIsFloorTransitioning(true);
+    isInitializedRef.current = false; // Allow re-initialization on new floor
     // Reset zoom and pan to default when changing floors for smooth transition
     setScale(0.85);
     setPanPosition({ x: 0, y: 0 });
@@ -556,10 +584,9 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
         <div
           className={`map-scalable ${isFloorTransitioning ? 'floor-transitioning' : 'floor-loaded'}`}
           style={{
-            position: 'relative',
             display: 'inline-block',
             transform: `translate(${panPosition.x}px, ${panPosition.y}px) scale(${scale})`,
-            transition: isPanning ? 'none' : 'transform 0.1s ease-out',
+            transition: isPanning || isZooming ? 'none' : 'transform 0.1s ease-out',
             cursor: isPanning ? 'grabbing' : 'grab'
           }}
           >

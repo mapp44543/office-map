@@ -179,3 +179,24 @@
 [2026-02-25T09:34:18.715Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
 [2026-02-25T09:56:09.096Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
 [2026-02-25T10:10:47.765Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
+[2026-02-25T10:28:30.883Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
+[2026-02-25T10:29:34.674Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
+[2026-02-25T10:31:57.687Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
+[2026-02-25T10:32:26.845Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
+[2026-02-25T10:32:42.720Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
+[2026-02-25T10:33:21.281Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
+[2026-02-25T10:33:35.041Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
+[2026-02-25T10:34:46.098Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
+[2026-02-25T10:38:11.143Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
+[2026-02-25T10:42:45.320Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
+[2026-02-25T10:45:42.241Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
+[2026-02-25T18:00:00.464Z] INFO: Starting scheduled AD synchronization...
+[2026-02-25T18:00:00.466Z] INFO: AD Sync operation started
+[2026-02-25T18:00:00.543Z] INFO: AD Sync completed successfully. Updated: 0, Skipped: 1, Failed: 1
+[2026-02-25T18:00:00.543Z] INFO: AD Sync completed successfully in 79ms
+[2026-03-02T07:49:23.963Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
+[2026-03-02T07:56:36.891Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
+[2026-03-02T07:58:56.508Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
+[2026-03-02T08:02:16.899Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
+[2026-03-02T08:05:18.876Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
+[2026-03-02T08:07:28.681Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
