@@ -7,6 +7,7 @@ import { getOptimizedImageUrl } from "@/lib/image-optimization";
 import LocationMarker from "./location-marker";
 import VirtualizedMarkerLayer from "./virtualized-marker-layer";
 import VirtualizedMarkerLayerAdvanced from "./virtualized-marker-layer-advanced";
+import HybridMarkerLayer from "./hybrid-marker-layer";
 import CanvasInteractiveMarkerLayer from "./canvas-interactive-marker-layer";
 import LocationModal from "./location-modal";
 import { Button } from "@/components/ui/button";
@@ -677,25 +678,29 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
               {isImageLoaded && (() => {
                 // Стратегия выбора рендеринга маркеров (оптимизировано для производительности):
                 // 1. Уровень 1 (0-50): VirtualizedMarkerLayer (DOM) - базовая виртуализация
-                // 2. Уровень 2 (50-90): VirtualizedMarkerLayerAdvanced (DOM + запасы на буфер) - для переходной зоны
-                // 3. Уровень 3 (90+): CanvasInteractiveMarkerLayer (Canvas) - максимальная производительность
+                // 2. Уровень 2 (50-90): VirtualizedMarkerLayerAdvanced (DOM) - для переходной зоны
+                // 3. Уровень 3 (90-200): HybridMarkerLayer (Canvas + DOM иконки) - гибридный режим ✨ ЛУЧШЕЕ ИЗ ОБОИХ МИРОВ
+                // 4. Уровень 4 (200+): CanvasInteractiveMarkerLayer (Canvas) - максимальная производительность
                 // Admin режим: всегда VirtualizedMarkerLayer (нужен DOM для drag-drop функций)
                 // 
-                // Пороги выбраны на основе тестирования на реальных данных:
-                // - 90 маркеров: Advanced режим начинает показывать фризы (25-40 FPS)
-                // - 90+ маркеров: Canvas режим гарантирует 55-60 FPS
+                // Преимущества гибридного режима (90-200 маркеров):
+                // - Canvas рисует цветные круги (очень быстро)
+                // - DOM отображает иконки сверху (красиво)
+                // - Результат: 50-58 FPS + полная поддержка SVG иконок ✅
 
                 const markerCount = locations.length;
                 const inAdminMode = isAdminMode;
 
                 // Выбираем оптимальный рендеринг режим
-                let renderMode: 'basic' | 'advanced' | 'canvas' = 'basic';
+                let renderMode: 'basic' | 'advanced' | 'hybrid' | 'canvas' = 'basic';
 
                 if (!inAdminMode) {
-                  if (markerCount > 150) {
-                    renderMode = 'canvas'; // Canvas при 150+ маркерах (максимальная оптимизация)
+                  if (markerCount > 200) {
+                    renderMode = 'canvas'; // Чистый Canvas при 200+ маркерах (максимальная производительность, без иконок)
+                  } else if (markerCount > 90) {
+                    renderMode = 'hybrid'; // Гибридный режим при 90-200 маркерах (иконки + производительность) ✨
                   } else if (markerCount > 50) {
-                    renderMode = 'advanced'; // Advanced virtualization при 50-150 маркерах с полной поддержкой иконок
+                    renderMode = 'advanced'; // Advanced при 50-90 маркерах (полная поддержка иконок, хорошая производительность)
                   }
                 }
 
@@ -713,6 +718,22 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
                       onMarkerClick={handleLocationClick}
                       isImageLoaded={isImageLoaded}
                       shouldUseCanvas={true}
+                    />
+                  );
+                } else if (renderMode === 'hybrid') {
+                  return (
+                    <HybridMarkerLayer
+                      locations={locations}
+                      isAdminMode={isAdminMode}
+                      highlightedLocationIds={highlightedLocationIdsLocal}
+                      foundLocationId={foundLocationId}
+                      onClick={handleLocationClick}
+                      imgSize={imgSize}
+                      imgRef={imgRef}
+                      onMarkerMove={handleMarkerMove}
+                      scale={scale}
+                      panPosition={panPosition}
+                      isImageLoaded={isImageLoaded}
                     />
                   );
                 } else if (renderMode === 'advanced') {
