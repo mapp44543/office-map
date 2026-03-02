@@ -692,10 +692,10 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
                 let renderMode: 'basic' | 'advanced' | 'canvas' = 'basic';
 
                 if (!inAdminMode) {
-                  if (markerCount > 90) {
-                    renderMode = 'canvas'; // Canvas при 90+ маркерах для максимальной производительности
+                  if (markerCount > 150) {
+                    renderMode = 'canvas'; // Canvas при 150+ маркерах (максимальная оптимизация)
                   } else if (markerCount > 50) {
-                    renderMode = 'advanced'; // Advanced virtualization при 50-90 маркерах
+                    renderMode = 'advanced'; // Advanced virtualization при 50-150 маркерах с полной поддержкой иконок
                   }
                 }
 
