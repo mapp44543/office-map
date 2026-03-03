@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { Quadtree, type QuadtreeItem } from '@/utils/quadtree';
+import { logHitDetectionMetric } from '@/utils/quadtree-profiler';
 import type { Location } from '@shared/schema';
 
 interface CanvasInteractiveMarkerLayerProps {
@@ -54,6 +56,7 @@ export default function CanvasInteractiveMarkerLayer({
   const [ctx, setCtx] = useState<CanvasRenderingContext2D | null>(null);
   const [hoveredMarkerId, setHoveredMarkerId] = useState<string | null>(null);
   const markerBoundsRef = useRef<Map<string, MarkerBound>>(new Map());
+  const quadtreeRef = useRef<Quadtree | null>(null);
 
   // Инициализируем canvas
   useEffect(() => {
@@ -145,6 +148,11 @@ export default function CanvasInteractiveMarkerLayer({
     // Очищаем bounds карту
     markerBoundsRef.current.clear();
 
+    // Пересоздаём Quadtree для оптимизированного hit detection
+    if (imgSize.width > 0 && imgSize.height > 0) {
+      quadtreeRef.current = new Quadtree(0, 0, imgSize.width, imgSize.height);
+    }
+
     // Рисуем каждый маркер
     locations.forEach((location) => {
       const x = (imgSize.width * (location.x ?? 0)) / 100;
@@ -161,14 +169,25 @@ export default function CanvasInteractiveMarkerLayer({
       if (isHighlighted) radius = 18;
       if (isHovered) radius = 20;
 
-      // Сохраняем bounds для hit detection
-      markerBoundsRef.current.set(location.id, {
+      // Сохраняем bounds для hit detection и добавляем в Quadtree
+      const bound: MarkerBound = {
         id: location.id,
         x,
         y,
         radius,
         location,
-      });
+      };
+      markerBoundsRef.current.set(location.id, bound);
+
+      // Добавляем в Quadtree для оптимизированного поиска
+      if (quadtreeRef.current) {
+        quadtreeRef.current.insert({
+          id: location.id,
+          x,
+          y,
+          radius,
+        });
+      }
 
       // Цвет
       const fillColor = isHighlighted ? '#dc2626' : getStatusColor(location);
@@ -221,10 +240,10 @@ export default function CanvasInteractiveMarkerLayer({
     ctx.restore();
   }, [ctx, locations, imgSize, scale, panPosition, isImageLoaded, shouldUseCanvas, highlightedLocationIds, foundLocationId, hoveredMarkerId]);
 
-  // Обработка кликов с hit detection
+  // Обработка кликов с оптимизированным hit detection через Quadtree
   const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || !quadtreeRef.current) return;
 
     const rect = canvas.getBoundingClientRect();
     
@@ -237,21 +256,42 @@ export default function CanvasInteractiveMarkerLayer({
     const mapX = (clientX - panPosition.x * dpr) / (scale * dpr);
     const mapY = (clientY - panPosition.y * dpr) / (scale * dpr);
 
-    // Hit detection: находим маркер под мышкой
-    for (const bound of Array.from(markerBoundsRef.current.values())) {
+    // Используем Quadtree для быстрого поиска кандидатов (O(log n) вместо O(n))
+    const startTime = performance.now();
+    const candidates = quadtreeRef.current.query(mapX, mapY, 20);
+
+    // Проверяем только кандидатов
+    let foundMarker: Location | null = null;
+    for (const candidateId of candidates) {
+      const bound = markerBoundsRef.current.get(candidateId);
+      if (!bound) continue;
+
       const distance = Math.sqrt((mapX - bound.x) ** 2 + (mapY - bound.y) ** 2);
 
       if (distance < bound.radius + 5) {
-        onMarkerClick(bound.location);
-        return;
+        foundMarker = bound.location;
+        break;
       }
+    }
+
+    // Логируем метрику для профилирования
+    const endTime = performance.now();
+    logHitDetectionMetric(
+      candidates.length,
+      foundMarker !== null,
+      foundMarker?.id,
+      endTime - startTime
+    );
+
+    if (foundMarker) {
+      onMarkerClick(foundMarker);
     }
   }, [panPosition, scale, onMarkerClick]);
 
-  // Обработка movement для hover effect
+  // Обработка movement для hover effect с оптимизированным поиском через Quadtree
   const handleCanvasMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || !quadtreeRef.current) return;
 
     const rect = canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
@@ -261,10 +301,16 @@ export default function CanvasInteractiveMarkerLayer({
     const mapX = (clientX - panPosition.x * dpr) / (scale * dpr);
     const mapY = (clientY - panPosition.y * dpr) / (scale * dpr);
 
-    // Проверяем, над каким маркером мышь
+    // Используем Quadtree для быстрого поиска под мышкой (O(log n))
+    const candidates = quadtreeRef.current.query(mapX, mapY, 25);
+
+    // Проверяем только кандидатов
     let foundMarkerId: string | null = null;
 
-    for (const bound of Array.from(markerBoundsRef.current.values())) {
+    for (const candidateId of candidates) {
+      const bound = markerBoundsRef.current.get(candidateId);
+      if (!bound) continue;
+
       const distance = Math.sqrt((mapX - bound.x) ** 2 + (mapY - bound.y) ** 2);
       if (distance < bound.radius + 10) {
         foundMarkerId = bound.id;
