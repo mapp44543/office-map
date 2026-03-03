@@ -103,39 +103,43 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
     } catch {}
   };
 
-  const handleMouseMove = (e: MouseEvent) => {
-    if (isPanning) {
-      const newX = e.clientX - startPanPos.x;
-      const newY = e.clientY - startPanPos.y;
-      // Используем requestAnimationFrame для синхронизации с refresh rate браузера
-      // Это гарантирует плавное движение при любом масштабе
-      if (rafIdRef.current !== null) {
-        cancelAnimationFrame(rafIdRef.current);
-      }
-      rafIdRef.current = requestAnimationFrame(() => {
-        setPanPosition({ x: newX, y: newY });
-        rafIdRef.current = null;
-      });
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isPanning) return;
+    
+    const newX = e.clientX - startPanPos.x;
+    const newY = e.clientY - startPanPos.y;
+    
+    // Обновляем refs сразу для более точного взаимодействия
+    panPositionRef.current = { x: newX, y: newY };
+    
+    // Используем requestAnimationFrame для синхронизации с refresh rate браузера
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current);
     }
-  };
+    rafIdRef.current = requestAnimationFrame(() => {
+      setPanPosition({ x: newX, y: newY });
+      rafIdRef.current = null;
+    });
+  }, [isPanning, startPanPos]);
 
-  const handleMouseUp = () => {
+  const handleMouseUp = useCallback(() => {
     if (rafIdRef.current !== null) {
       cancelAnimationFrame(rafIdRef.current);
       rafIdRef.current = null;
     }
     setIsPanning(false);
+    setIsInteracting(false);
     // Restore text selection
     try {
       document.body.classList.remove('dragging-marker-no-select');
       document.documentElement.classList.remove('dragging-marker-no-select');
     } catch {}
-  };
+  }, []);
 
   // Добавляем обработчики событий мыши
   useEffect(() => {
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    window.addEventListener('mouseup', handleMouseUp, { passive: true });
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
@@ -148,7 +152,7 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
         document.documentElement.classList.remove('dragging-marker-no-select');
       } catch {}
     };
-  }, [isPanning, startPanPos]);
+  }, [handleMouseMove, handleMouseUp]);
 
   // Синхронизируем scaleRef и panPositionRef с состояниями
   useEffect(() => {
@@ -179,9 +183,6 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
     if (wheelThrottleRef.current !== null) {
       return;
     }
-
-    setIsInteracting(true);
-    setIsZooming(true);
 
     const delta = e.deltaY;
     const container = containerRef.current;
@@ -215,18 +216,18 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
     const newPanX = mouseInContainerX - worldX * newScale;
     const newPanY = mouseInContainerY - worldY * newScale;
     
-    // Обновляем позицию и масштаб (синхронно через refs)
+    // Обновляем refs сразу для более точного взаимодействия
     panPositionRef.current = { x: newPanX, y: newPanY };
     scaleRef.current = newScale;
     
     // Обновляем состояние (для перерендера)
     setPanPosition({ x: newPanX, y: newPanY });
     setScale(newScale);
+    setIsInteracting(true);
 
     // Throttle: ограничиваем частоту вызовов
     wheelThrottleRef.current = window.setTimeout(() => {
       wheelThrottleRef.current = null;
-      setIsZooming(false);
     }, 16); // 16ms = ~60fps
   }, []);
 
@@ -585,9 +586,10 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
           className={`map-scalable ${isFloorTransitioning ? 'floor-transitioning' : 'floor-loaded'}`}
           style={{
             display: 'inline-block',
-            transform: `translate(${panPosition.x}px, ${panPosition.y}px) scale(${scale})`,
-            transition: isPanning || isZooming ? 'none' : 'transform 0.1s ease-out',
-            cursor: isPanning ? 'grabbing' : 'grab'
+            transform: `translate3d(${panPosition.x}px, ${panPosition.y}px, 0) scale(${scale})`,
+            transition: isInteracting || isZooming ? 'none' : 'transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+            cursor: isPanning ? 'grabbing' : 'grab',
+            willChange: isInteracting || isZooming ? 'transform' : 'auto'
           }}
           >
           {imageUrl ? (
@@ -670,7 +672,8 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
                 height: imgSize.height,
                 pointerEvents: 'none',
                 opacity: isImageLoaded ? 1 : 0,
-                transition: 'opacity 0.2s ease-in'
+                transition: 'opacity 0.2s ease-in',
+                willChange: isImageLoaded ? 'auto' : 'opacity'
               }}
               data-testid="office-map-marker-layer"
             >

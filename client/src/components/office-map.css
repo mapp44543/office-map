@@ -18,23 +18,22 @@
   top: 0;
   left: 0;
   transform-origin: 0 0;
-  will-change: transform, opacity;
+  will-change: transform;
   touch-action: none; /* Предотвращает стандартное поведение касания на мобильных устройствах */
   user-select: none; /* Предотвращает выделение текста при перетаскивании */
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
   /* GPU-ускорение для гладкого движения */
-  -webkit-transform: translateZ(0);
-  -moz-transform: translateZ(0);
-  -ms-transform: translateZ(0);
-  transform: translateZ(0);
+  -webkit-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
   /* Предотвращаем мигание при преобразованиях */
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   -webkit-perspective: 1000;
   perspective: 1000;
-  transition: transform 600ms cubic-bezier(0.4, 0.0, 0.2, 1); /* Плавная анимация с мягким ускорением */
+  /* По умолчанию нет переходов - жесткое управление через inline styles */
+  transition: none;
 }
 
 /* Floor transition: fade in/out effect - optimized for 60 FPS */
@@ -51,6 +50,15 @@
   pointer-events: auto;
 }
 
+/* Во время зума/панорамы отключаем некоторые дорогие операции */
+.map-scalable.is-interacting {
+  outline: none;
+}
+
+.map-container.is-interacting {
+  -webkit-font-smoothing: antialiased;
+}
+
 .map-scalable img {
   pointer-events: none; /* Отключает события мыши на изображении */
   -webkit-user-drag: none; /* Отключает перетаскивание в WebKit */
@@ -61,10 +69,11 @@
   image-rendering: -webkit-optimize-contrast;
   image-rendering: crisp-edges;
   /* GPU-ускорение */
-  -webkit-transform: translateZ(0);
-  transform: translateZ(0);
+  -webkit-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
+  will-change: auto;
 }
 
 .map-scalable object {
@@ -74,10 +83,11 @@
   -moz-user-drag: none; /* Отключает перетаскивание в Firefox */
   -o-user-drag: none; /* Отключает перетаскивание в Opera */
   /* GPU-ускорение для SVG */
-  -webkit-transform: translateZ(0);
-  transform: translateZ(0);
+  -webkit-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
+  will-change: auto;
 }
 
 .marker {
