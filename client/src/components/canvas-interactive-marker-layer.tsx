@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Quadtree, type QuadtreeItem } from '@/utils/quadtree';
 import { logHitDetectionMetric } from '@/utils/quadtree-profiler';
+import { getGlobalColorsCache } from '@/utils/marker-colors-cache';
 import type { Location } from '@shared/schema';
 
 interface CanvasInteractiveMarkerLayerProps {
@@ -57,6 +58,7 @@ export default function CanvasInteractiveMarkerLayer({
   const [hoveredMarkerId, setHoveredMarkerId] = useState<string | null>(null);
   const markerBoundsRef = useRef<Map<string, MarkerBound>>(new Map());
   const quadtreeRef = useRef<Quadtree | null>(null);
+  const colorsCacheRef = useRef(getGlobalColorsCache());
 
   // Инициализируем canvas
   useEffect(() => {
@@ -99,34 +101,37 @@ export default function CanvasInteractiveMarkerLayer({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Функция для получения цвета статуса маркера
-  const getStatusColor = (location: Location): string => {
-    try {
-      if (location.type === 'socket') {
-        const cf = location.customFields && typeof location.customFields === 'object' 
-          ? (location.customFields as Record<string, any>) 
-          : {};
-        const raw = String(cf['Status'] || cf['status'] || cf['CiscoStatus'] || cf['ciscoStatus'] || '').trim().toLowerCase();
-        if (!raw) return '#f59e0b'; // yellow-500
-        if (raw.includes('notconnect') || raw.includes('not connected') || raw === 'no' || raw.includes('down')) return '#ef4444'; // red-500
-        if (raw.includes('connect') || raw.includes('connected') || raw === 'up') return '#10b981'; // emerald-500
-        return '#64748b'; // slate-500
-      }
-
-      switch ((location.status || '').toLowerCase()) {
-        case 'available':
-          return '#10b981'; // emerald-500
-        case 'occupied':
-          return '#3b82f6'; // blue-500
-        case 'maintenance':
-          return '#6b7280'; // gray-500
-        default:
+  // Функция для получения цвета статуса маркера (с мемоизацией через кэш)
+  const getStatusColor = useCallback((location: Location): string => {
+    // Используем кэш для мемоизации цветов - избегаем пересчётов при каждом рендере
+    return colorsCacheRef.current.get(location, (loc: Location) => {
+      try {
+        if (loc.type === 'socket') {
+          const cf = loc.customFields && typeof loc.customFields === 'object' 
+            ? (loc.customFields as Record<string, any>) 
+            : {};
+          const raw = String(cf['Status'] || cf['status'] || cf['CiscoStatus'] || cf['ciscoStatus'] || '').trim().toLowerCase();
+          if (!raw) return '#f59e0b'; // yellow-500
+          if (raw.includes('notconnect') || raw.includes('not connected') || raw === 'no' || raw.includes('down')) return '#ef4444'; // red-500
+          if (raw.includes('connect') || raw.includes('connected') || raw === 'up') return '#10b981'; // emerald-500
           return '#64748b'; // slate-500
+        }
+
+        switch ((loc.status || '').toLowerCase()) {
+          case 'available':
+            return '#10b981'; // emerald-500
+          case 'occupied':
+            return '#3b82f6'; // blue-500
+          case 'maintenance':
+            return '#6b7280'; // gray-500
+          default:
+            return '#64748b'; // slate-500
+        }
+      } catch {
+        return '#64748b';
       }
-    } catch {
-      return '#64748b';
-    }
-  };
+    });
+  }, []);
 
   // Отрисовка маркеров на Canvas
   useEffect(() => {

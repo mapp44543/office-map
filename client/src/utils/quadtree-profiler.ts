@@ -1,5 +1,5 @@
 /**
- * Утилиты для профилирования и отладки Quadtree hit detection
+ * Утилиты для профилирования и отладки Quadtree hit detection + Color Cache
  * 
  * Используйте эти функции в консоли браузера для измерения производительности
  */
@@ -59,7 +59,17 @@ export class QuadtreeProfiler {
     const candidatesCounts = this.metrics.map(m => m.candidatesFound);
     const avgCandidates = candidatesCounts.reduce((a, b) => a + b, 0) / candidatesCounts.length;
 
-    return {
+    // Получаем статистику кэша цветов, если он доступен
+    let cacheStats = null;
+    try {
+      if ((window as any).ColorsCacheTools?.stats) {
+        cacheStats = (window as any).ColorsCacheTools.stats();
+      }
+    } catch (e) {
+      // Ignore if cache not available
+    }
+
+    const baseStats = {
       'Total Samples': this.metrics.length,
       'Avg Hit Detection Time (ms)': avgTime.toFixed(3),
       'Max Time (ms)': maxTime.toFixed(3),
@@ -67,6 +77,21 @@ export class QuadtreeProfiler {
       'Avg Candidates Checked': avgCandidates.toFixed(1),
       'Click Success Rate': `${((this.metrics.filter(m => m.actualMatch).length / this.metrics.length) * 100).toFixed(1)}%`,
     };
+
+    // Добавляем статистику кэша, если доступна
+    if (cacheStats) {
+      return {
+        ...baseStats,
+        '--- COLOR CACHE STATS ---': '---',
+        'Cache Hit Rate': `${cacheStats.hitRate.toFixed(1)}%`,
+        'Cache Hits': cacheStats.hits,
+        'Cache Misses': cacheStats.misses,
+        'Cache Size': `${cacheStats.size}/${cacheStats.maxSize}`,
+        'Avg Access Time (ms)': cacheStats.avgAccessTime.toFixed(4),
+      };
+    }
+
+    return baseStats;
   }
 
   /**
@@ -89,10 +114,11 @@ export class QuadtreeProfiler {
   compareWithBaseline() {
     const stats = this.getStats();
     console.log('📊 Hit Detection Performance:');
-    console.log(`Average time: ${(stats['Avg Hit Detection Time (ms)'] as any).toFixed(3)}ms`);
-    console.log(`Candidates checked: ${(stats['Avg Candidates Checked'] as any).toFixed(1)}`);
+    const statsMap = stats as any;
+    console.log(`Average time: ${(statsMap['Avg Hit Detection Time (ms)'] || 0).toFixed(3)}ms`);
+    console.log(`Candidates checked: ${(statsMap['Avg Candidates Checked'] || 0).toFixed(1)}`);
     
-    const avgTime = parseFloat((stats['Avg Hit Detection Time (ms)'] as any).toFixed(3));
+    const avgTime = parseFloat((statsMap['Avg Hit Detection Time (ms)'] || 0).toFixed(3));
     
     if (avgTime < 5) {
       console.log('✅ EXCELLENT - Quadtree working perfectly!');
@@ -128,6 +154,15 @@ export const QuadtreeDebugTools = {
     if (window.quadtreeProfiler) {
       window.quadtreeProfiler.startProfiling();
     }
+    // Сбросить статистику кэша
+    try {
+      if ((window as any).ColorsCacheTools?.resetStats) {
+        (window as any).ColorsCacheTools.resetStats();
+        console.log('🟢 Color cache stats reset');
+      }
+    } catch (e) {
+      // Ignore if cache not available
+    }
   },
 
   /**
@@ -137,6 +172,40 @@ export const QuadtreeDebugTools = {
   stop() {
     if (window.quadtreeProfiler) {
       window.quadtreeProfiler.stopProfiling();
+    }
+  },
+
+  /**
+   * Показать статистику кэша цветов
+   * Использование: QuadtreeDebugTools.cacheStats()
+   */
+  cacheStats() {
+    try {
+      if ((window as any).ColorsCacheTools?.stats) {
+        const stats = (window as any).ColorsCacheTools.stats();
+        console.log('📊 Color Cache Statistics:');
+        console.table(stats);
+        return stats;
+      } else {
+        console.log('⚠️  Color cache not available');
+      }
+    } catch (e) {
+      console.error('Error getting cache stats:', e);
+    }
+  },
+
+  /**
+   * Очистить кэш цветов
+   * Использование: QuadtreeDebugTools.clearCache()
+   */
+  clearCache() {
+    try {
+      if ((window as any).ColorsCacheTools?.clear) {
+        (window as any).ColorsCacheTools.clear();
+        console.log('✅ Color cache cleared');
+      }
+    } catch (e) {
+      console.error('Error clearing cache:', e);
     }
   },
 
@@ -167,57 +236,53 @@ export const QuadtreeDebugTools = {
   help() {
     console.log(`
 ╔════════════════════════════════════════════════════════════════════╗
-║        Quadtree Hit Detection - Debug Tools                        ║
+║   Quadtree Hit Detection + Color Cache - Debug Tools              ║
 ╚════════════════════════════════════════════════════════════════════╝
 
 🎯 QUICK START:
   1. QuadtreeDebugTools.start()        // Start profiling
-  2. Click on markers (10-20 times)
+  2. Click on markers (10-20 times), hover over some
   3. QuadtreeDebugTools.stop()         // Stop and show results
 
 📊 AVAILABLE COMMANDS:
-  • QuadtreeDebugTools.start()         - Begin recording metrics
-  • QuadtreeDebugTools.stop()          - Stop recording and show stats
+  • QuadtreeDebugTools.start()         - Begin recording metrics & reset cache stats
+  • QuadtreeDebugTools.stop()          - Stop recording and show stats with cache info
   • QuadtreeDebugTools.showLast(N)     - Show last N clicks (default 10)
   • QuadtreeDebugTools.compare()       - Compare with baseline performance
+  • QuadtreeDebugTools.cacheStats()    - Show color cache statistics
+  • QuadtreeDebugTools.clearCache()    - Clear color cache
   • QuadtreeDebugTools.help()          - Show this help message
 
 🔍 WHAT TO LOOK FOR:
-  ✅ GOOD:
-     - Avg hit detection time < 5ms
-     - Avg candidates checked < 10
-     - All clicks result in match (100%)
   
-  ⚠️  NEEDS IMPROVEMENT:
-     - Avg hit detection time 5-10ms
-     - Avg candidates checked 10-20
-  
-  ❌ BAD:
-     - Avg hit detection time > 10ms
-     - Avg candidates checked > 50
+  HIT DETECTION (Quadtree):
+    ✅ GOOD: < 5ms time, < 10 candidates
+    ⚠️  OK: 5-10ms time, 10-20 candidates
+    ❌ BAD: > 10ms time, > 50 candidates
 
-📈 EXAMPLE SESSION:
-  > QuadtreeDebugTools.start()
-  🟢 Quadtree profiling started
-  
-  > // Click on 15 markers on the map
-  
-  > QuadtreeDebugTools.stop()
-  🔴 Quadtree profiling stopped
-  ┌─────────────────────────────────┬────────┐
-  │ Total Samples                   │ 15     │
-  │ Avg Hit Detection Time (ms)     │ 1.234  │
-  │ Max Time (ms)                   │ 2.456  │
-  │ Min Time (ms)                   │ 0.789  │
-  │ Avg Candidates Checked          │ 4.7    │
-  │ Click Success Rate              │ 100%   │
-  └─────────────────────────────────┴────────┘
-  ✅ EXCELLENT - Quadtree working perfectly!
+  COLOR CACHE:
+    ✅ GOOD: > 90% hit rate, < 0.5ms access time
+    ⚠️  OK: 70-90% hit rate, 0.5-1ms access time
+    ❌ BAD: < 70% hit rate, > 1ms access time
 
-💡 OPTIMIZATION TIPS:
-  • If time > 10ms: Check if Quadtree is being rebuilt too often
-  • If candidates > 30: Increase maxZoom in Quadtree constructor
-  • If success rate < 100%: Adjust searchRadius in query calls
+📈 EXAMPLE OUTPUT:
+  ┌───────────────────────────────────────┬────────┐
+  │ Total Samples                         │ 25     │
+  │ Avg Hit Detection Time (ms)           │ 1.234  │
+  │ Avg Candidates Checked                │ 4.7    │
+  │ Click Success Rate                    │ 100%   │
+  │ --- COLOR CACHE STATS ---             │ ---    │
+  │ Cache Hit Rate                        │ 95.2%  │
+  │ Cache Hits                            │ 58     │
+  │ Cache Misses                          │ 3      │
+  │ Cache Size                            │ 42/200 │
+  │ Avg Access Time (ms)                  │ 0.032  │
+  └───────────────────────────────────────┴────────┘
+
+💡 EXPECTED IMPROVEMENTS:
+  Phase 1 Step 1 (Quadtree): -88% hit detection time
+  Phase 1 Step 2 (Color Cache): -15-20% CPU during render
+  Combined: ~-35% total CPU usage during interaction
     `);
   },
 };

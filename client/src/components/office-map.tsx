@@ -46,10 +46,14 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
   const [isMarkerDragging, setIsMarkerDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const rafIdRef = useRef<number | null>(null);
-  const wheelThrottleRef = useRef<number | null>(null);
   const scaleRef = useRef<number>(0.85);
   const panPositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const isInitializedRef = useRef<boolean>(false);
+  // Wheel batching refs (для накопления событий между RAF кадрами)
+  const wheelDeltaRef = useRef<number>(0);
+  const wheelPendingRef = useRef<boolean>(false);
+  const lastWheelMouseRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const wheelRafIdRef = useRef<number | null>(null);
   const [isInteracting, setIsInteracting] = useState(false);
   const [isZooming, setIsZooming] = useState(false);
 
@@ -175,61 +179,95 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
     };
   }, []);
 
-  // Обработчик события колесика мыши с зумом по позиции мыши (с throttle)
-  const handleWheel = useCallback((e: WheelEvent) => {
-    e.preventDefault();
-
-    // Throttle wheel events - максимум 16ms между обновлениями (60fps)
-    if (wheelThrottleRef.current !== null) {
+  /**
+   * Обработчик события батчинга wheel (накопление событий между RAF кадрами)
+   * Вместо throttle который теряет события, мы накапливаем все deltaY и обрабатываем в RAF
+   */
+  const processWheelBatch = useCallback(() => {
+    // Если нет накопленных событий, выходим
+    if (wheelDeltaRef.current === 0 || !wheelPendingRef.current) {
+      wheelRafIdRef.current = null;
       return;
     }
 
-    const delta = e.deltaY;
     const container = containerRef.current;
-    if (!container) return;
+    if (!container) {
+      wheelPendingRef.current = false;
+      wheelDeltaRef.current = 0;
+      wheelRafIdRef.current = null;
+      return;
+    }
 
-    // Получаем позицию мыши в окне браузера
-    const mouseScreenX = e.clientX;
-    const mouseScreenY = e.clientY;
-    
+    const delta = wheelDeltaRef.current;
+    const mouseScreenX = lastWheelMouseRef.current.x;
+    const mouseScreenY = lastWheelMouseRef.current.y;
+
     // Получаем позицию контейнера
     const containerRect = container.getBoundingClientRect();
-    
-    // Позиция мыши относительно контейнера (от левого верхнего угла)
+
+    // Позиция мыши относительно контейнера
     const mouseInContainerX = mouseScreenX - containerRect.left;
     const mouseInContainerY = mouseScreenY - containerRect.top;
 
-    // Получаем АКТУАЛЬНЫЕ значения из refs (не из async state)
+    // Получаем АКТУАЛЬНЫЕ значения из refs
     const currentScale = scaleRef.current;
     const currentPan = panPositionRef.current;
 
-    // Вычисляем новый масштаб
-    const newScale = delta > 0
-      ? Math.max(0.5, currentScale - 0.1)  // уменьшение масштаба
-      : Math.min(3, currentScale + 0.1);   // увеличение масштаба
+    // Вычисляем новый масштаб (с учетом ВСЕХ накопленных событий)
+    let newScale = currentScale;
+    const deltaSteps = Math.round(delta / 100); // Нормализуем delta
+    for (let i = 0; i < Math.abs(deltaSteps); i++) {
+      if (delta > 0) {
+        newScale = Math.max(0.5, newScale - 0.1);
+      } else {
+        newScale = Math.min(3, newScale + 0.1);
+      }
+    }
 
-    // ПРАВИЛЬНЫЙ расчет зума по позиции мышки (с актуальной позицией из ref)
+    // Вычисляем новую позицию панорамы с учетом зума
     const worldX = (mouseInContainerX - currentPan.x) / currentScale;
     const worldY = (mouseInContainerY - currentPan.y) / currentScale;
-    
-    // После зума эта же мировая точка должна быть под мышкой
+
     const newPanX = mouseInContainerX - worldX * newScale;
     const newPanY = mouseInContainerY - worldY * newScale;
-    
-    // Обновляем refs сразу для более точного взаимодействия
+
+    // Обновляем refs сразу
     panPositionRef.current = { x: newPanX, y: newPanY };
     scaleRef.current = newScale;
-    
-    // Обновляем состояние (для перерендера)
+
+    // Обновляем состояние для перерендера
     setPanPosition({ x: newPanX, y: newPanY });
     setScale(newScale);
     setIsInteracting(true);
 
-    // Throttle: ограничиваем частоту вызовов
-    wheelThrottleRef.current = window.setTimeout(() => {
-      wheelThrottleRef.current = null;
-    }, 16); // 16ms = ~60fps
+    // Сбрасываем батч
+    wheelPendingRef.current = false;
+    wheelDeltaRef.current = 0;
+    wheelRafIdRef.current = null;
   }, []);
+
+  /**
+   * Обработчик события колесика мыши (с батчингом событий)
+   * Вместо throttle который теряет события, накапливаем их между кадрами
+   */
+  const handleWheel = useCallback((e: WheelEvent) => {
+    e.preventDefault();
+
+    // Накапливаем delta (не обрабатываем сразу)
+    wheelDeltaRef.current += e.deltaY;
+    lastWheelMouseRef.current = { x: e.clientX, y: e.clientY };
+    wheelPendingRef.current = true;
+
+    // Если RAF уже запланирован, не запускаем еще один
+    if (wheelRafIdRef.current !== null) {
+      return;
+    }
+
+    // Запланируем обработку в следующем кадре
+    wheelRafIdRef.current = requestAnimationFrame(() => {
+      processWheelBatch();
+    });
+  }, [processWheelBatch]);
 
   // Добавляем обработчик события колесика мыши с passive: false для preventDefault
   useEffect(() => {
@@ -238,9 +276,14 @@ export default function OfficeMap({ locations, isAdminMode, currentFloor, refetc
       container.addEventListener('wheel', handleWheel, { passive: false });
       return () => {
         container.removeEventListener('wheel', handleWheel);
-        if (wheelThrottleRef.current !== null) {
-          clearTimeout(wheelThrottleRef.current);
+        // Очищаем батчинг RAF если он запланирован
+        if (wheelRafIdRef.current !== null) {
+          cancelAnimationFrame(wheelRafIdRef.current);
+          wheelRafIdRef.current = null;
         }
+        // Сбрасываем батч
+        wheelPendingRef.current = false;
+        wheelDeltaRef.current = 0;
       };
     }
   }, [handleWheel]);
