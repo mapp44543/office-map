@@ -211,3 +211,16 @@
 [2026-03-04T04:52:23.769Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
 [2026-03-04T05:28:05.744Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
 [2026-03-04T06:07:20.980Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
+[2026-03-04T07:29:14.177Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
+[2026-03-04T08:54:27.789Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
+[2026-03-04T08:54:36.330Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
+[2026-03-04T08:55:46.218Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
+[2026-03-04T08:57:46.046Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
+[2026-03-04T08:58:07.806Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
+[2026-03-04T08:59:16.383Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
+[2026-03-04T09:02:53.233Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
+[2026-03-04T09:04:36.136Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
+[2026-03-04T18:00:00.073Z] INFO: Starting scheduled AD synchronization...
+[2026-03-04T18:00:00.075Z] INFO: AD Sync operation started
+[2026-03-04T18:00:03.779Z] INFO: AD Sync completed successfully. Updated: 0, Skipped: 217, Failed: 29
+[2026-03-04T18:00:03.780Z] INFO: AD Sync completed successfully in 3707ms
