@@ -29,7 +29,7 @@ interface LocationMarkerProps {
   scale: number;
   panPosition: { x: number; y: number };
 }
-
+// 🔹 Иконки
 // 🔹 Иконки
 const getLocationIcon = (type: string, customIconUrl?: string, onLoad?: () => void) => {
   const iconSize =
@@ -50,9 +50,9 @@ const getLocationIcon = (type: string, customIconUrl?: string, onLoad?: () => vo
   // For common-area, meeting-room, camera, ac, equipment, or workstation - use SVG icons from folders
   if (customIconUrl && (type === "common-area" || type === "meeting-room" || type === "camera" || type === "ac" || type === "equipment" || type === "workstation")) {
     return (
-      <img 
-        src={customIconUrl} 
-        alt="icon" 
+      <img
+        src={customIconUrl}
+        alt="icon"
         className={`${iconSize} pointer-events-none transition-opacity duration-300`}
         style={{
           opacity: 0,
@@ -74,8 +74,8 @@ const getLocationIcon = (type: string, customIconUrl?: string, onLoad?: () => vo
   // For socket type, show lucide-react icons
   switch (type) {
     case "socket":
-      // Socket icons are rendered here - need to show placeholder or default
-      return <div className={`${iconSize} bg-white rounded-full`} />;
+      // Socket only shows the colored marker, no icon
+      return null;
     default:
       return null;
   }
@@ -239,17 +239,17 @@ function LocationMarkerComponent({
     staleTime: 5 * 60 * 1000, // 5 минут
     retry: false, // Не пересылаем 404 ошибки
   });
-  
+
   // Get the custom icon URL for common-area, meeting-room, equipment, camera, ac, or workstation
   // Returns undefined while icons are still loading to prevent flickering
   const getCustomIconUrl = () => {
     const cf = location.customFields && typeof location.customFields === "object"
       ? (location.customFields as Record<string, any>)
       : {};
-    
+
     const preferredIcon = cf.customIcon;
     const status = location.status || "available";
-    
+
     if (location.type === "common-area") {
       // Return undefined while loading - prevents showing fallback icons
       if (iconsCache.isLoading) {
@@ -362,10 +362,10 @@ function LocationMarkerComponent({
   const handleMouseDown = (e: React.MouseEvent) => {
     // Если это не админ-панель или это HR - позволяем только клик, не drag
     if (!isAdminMode || isHr || e.button !== 0) return;
-    
+
     // Запомним начальную позицию, но не начинаем drag сразу
     e.stopPropagation();
-    
+
     setIsMouseDown(true);
     dragStartRef.current = { x: e.clientX, y: e.clientY };
   };
@@ -375,12 +375,12 @@ function LocationMarkerComponent({
 
     const handleMouseMove = (e: MouseEvent) => {
       if (!dragStartRef.current) return;
-      
+
       // Detect if there was significant movement to distinguish drag from click
       const dx = e.clientX - dragStartRef.current.x;
       const dy = e.clientY - dragStartRef.current.y;
       const dragThreshold = 5; // pixels
-      
+
       // Если движение превышает порог, начинаем drag
       if (Math.abs(dx) > dragThreshold || Math.abs(dy) > dragThreshold) {
         if (!isDragging) {
@@ -388,7 +388,7 @@ function LocationMarkerComponent({
           try {
             window.dispatchEvent(new CustomEvent("marker-drag-start"));
           } catch {}
-          
+
           // Prevent text selection across the page while dragging
           try {
             document.body.classList.add("dragging-marker-no-select");
@@ -396,7 +396,7 @@ function LocationMarkerComponent({
           } catch {}
         }
       }
-      
+
       // Когда перемещаем - обновляем позицию тени
       if (isDragging || Math.abs(dx) > dragThreshold || Math.abs(dy) > dragThreshold) {
         const img = imgRef.current;
@@ -425,19 +425,19 @@ function LocationMarkerComponent({
 
     const handleMouseUp = (e: MouseEvent) => {
       setIsMouseDown(false);
-      
+
       if (!isDragging || !dragStartRef.current) {
         // Это был просто клик, не drag
         dragStartRef.current = null;
         setShadowPosition(null);
         return;
       }
-      
+
       // Это был drag, обновляем позицию
       setIsDragging(false);
       dragStartRef.current = null;
       setShadowPosition(null);
-      
+
       try {
         window.dispatchEvent(new CustomEvent("marker-drag-end"));
       } catch {}
@@ -502,12 +502,12 @@ function LocationMarkerComponent({
   // 🔹 Клик
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    
+
     // Если был drag, не открываем детали
     if (isDragging) {
       return;
     }
-    
+
     // Открываем детали локации при клике
     onClick(location);
   };
@@ -630,7 +630,29 @@ function LocationMarkerComponent({
             ...getShapeStyle(location.type, customIconUrl),
           }}
         >
-          {location.type === "socket" ? getLocationIcon(location.type, customIconUrl) : customIconUrl ? getLocationIcon(location.type, customIconUrl) : null}
+          <div className="flex flex-col items-center justify-center w-full h-full select-none">
+            {location.type !== "socket" && customIconUrl && getLocationIcon(location.type, customIconUrl)}
+            {location.type === "socket" && (
+              <div
+                className="mt-0.5 text-[10px] leading-tight font-medium text-center w-full max-w-full px-0.5 overflow-hidden text-ellipsis whitespace-nowrap"
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: "1.2em",
+                  lineHeight: "1.1",
+                  fontSize:
+                    (location.width ?? 0) < 40 || (location.height ?? 0) < 40
+                      ? "9px"
+                      : "11px",
+                }}
+                title={location.name}
+              >
+                {location.customFields?.port
+                  ? location.customFields.port.match(/\/(\d+)$/)?.[1] ||
+                    location.name
+                  : location.name}
+              </div>
+            )}
+          </div>
         </div>
       )}
       <Tooltip>
@@ -671,7 +693,7 @@ function LocationMarkerComponent({
           )}
 
           <div className="flex flex-col items-center justify-center w-full h-full select-none">
-            {location.type === "socket" ? getLocationIcon(location.type, customIconUrl) : customIconUrl ? getLocationIcon(location.type, customIconUrl, () => setIsIconLoaded(true)) : null}
+            {location.type !== "socket" && (customIconUrl ? getLocationIcon(location.type, customIconUrl, () => setIsIconLoaded(true)) : null)}
             {location.type === "socket" && (
               <div
                 className="mt-0.5 text-[10px] leading-tight font-medium text-center w-full max-w-full px-0.5 overflow-hidden text-ellipsis whitespace-nowrap"
