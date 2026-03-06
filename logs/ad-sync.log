@@ -224,3 +224,7 @@
 [2026-03-04T18:00:00.075Z] INFO: AD Sync operation started
 [2026-03-04T18:00:03.779Z] INFO: AD Sync completed successfully. Updated: 0, Skipped: 217, Failed: 29
 [2026-03-04T18:00:03.780Z] INFO: AD Sync completed successfully in 3707ms
+[2026-03-05T07:16:38.328Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
+[2026-03-05T07:19:05.834Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
+[2026-03-05T07:20:18.239Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
+[2026-03-05T07:21:19.421Z] INFO: AD Sync Scheduler started with schedule: 0 23 * * *
